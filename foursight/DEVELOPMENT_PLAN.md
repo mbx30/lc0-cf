@@ -172,6 +172,68 @@ Lichess PGN/Parquet pipelines reusing `ActualRecord`; `to_dataframe` /
 (Layer B) for downstream calibration. Budget for heavy preprocessing (Maia team
 reports multi-day PGN→tabular on large shards).
 
+This environment is **CPU-only** (no GPU; lc0 BLAS eval is single-digit nps), so
+engine-enriching millions of positions here is infeasible. Phase 2 is therefore
+split into **two honest tracks**: bulk ACTUAL ingest (no engine, scales to
+millions) and sampled engine enrichment (engine in the loop, sampled subsets
+only).
+
+#### Track A — Bulk ACTUAL ingest (CPU-friendly)
+
+No engine in the loop, so millions of positions are feasible on this hardware.
+
+* Reuse the existing `records_from_pgn` generator — it already streams
+  game-by-game, so memory stays bounded over arbitrarily large dumps.
+* Land per-position `ActualRecord`s through the `to_dataframe` / `write_parquet`
+  seam, partitioned by month/shard.
+* Output is the ACTUAL sight at scale: played move + realized result, ready for
+  later enrichment.
+
+#### Track B — Sampled engine enrichment
+
+Run the optimal/human comparator to produce `ComparisonRow` features (the
+Phase-1 `foursight.metrics` rows) on top of ingested positions.
+
+* Feasible only on **sampled subsets** on this hardware (sample by Elo band /
+  phase / time bucket so calibration stays representative).
+* **Full-corpus enrichment is a GPU-only job, explicitly deferred** — the
+  pipeline is written to resume against the GPU path without reshaping data.
+
+#### Data acquisition
+
+* Lichess ships monthly `.pgn.zst` compressed dumps from
+  `database.lichess.org`.
+* Phase 2 needs **streaming zstd decompression** so shards never fully land on
+  disk uncompressed — adds a `zstandard` dependency.
+
+#### Filtering
+
+Raw dumps mix chess variants, unrated games, ultrabullet/bullet, and games with
+no Elo headers. Filter **before** rows pollute calibration:
+
+* standard variant only,
+* rated games only,
+* a time-control floor (drop ultrabullet/bullet),
+* games with Elo present (both players).
+
+#### Streaming / batched writes (mandatory)
+
+The current parquet seams (`write_parquet`, `write_rows_parquet`) accumulate all
+rows in memory before writing — fine for fixtures, but they will OOM on real
+shards. Phase 2 must write **incrementally**:
+
+* batched/row-group writes (e.g. `pyarrow.ParquetWriter`),
+* output partitioned by month/shard,
+* bounded peak memory regardless of corpus size.
+
+#### Cross-cutting
+
+* **Idempotent reruns:** a run manifest + `schema_version` so a re-run skips
+  completed shards and detects schema drift.
+* **Validation report:** counts at each boundary (raw → filtered → written),
+  null rates for key fields, and metric sanity-checks against
+  `foursight calibrate`.
+
 ### Phase 3 — Serving
 
 `serving/` FastAPI endpoint behind a sub-100 ms target for Maia-3 / small nets.
