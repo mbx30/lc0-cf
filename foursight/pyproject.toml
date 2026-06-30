@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "foursight"
 version = "0.0.0"
-description = "4sight (Maia v2) — three-axis optimal/human/actual comparison engine, chess proving ground"
+description = "4sight (Maia v2) — four-sight optimal/human/actual/worst comparison; chess proving ground + market engine"
 readme = "README.md"
 requires-python = ">=3.11"
 license = { text = "GPL-3.0-or-later" }

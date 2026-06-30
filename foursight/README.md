@@ -98,5 +98,12 @@ foursight/
     ingest/actual.py          ACTUAL sight from PGN / FEN+moves
     compare.py                ThreeWayComparison + pairwise gaps
     cli.py                    doctor / compare / replay
-  tests/                      mock-based gate + opt-in live checks
+    market/                   Phase 4 — prediction-market four-sight engine
+      records.py              MarketRecord + Parquet I/O
+      ingest/                 Polymarket + Kalshi CSV adapters (Light/Medium)
+      synthesis.py            multi-platform merge, resample, walk-forward
+      trend_net.py            DOWN/FLAT/UP tiny net (numpy, CPU)
+      compare.py              FourWayComparison + six gaps
+    game_theory/              WORST sight — adversarial-coalition solver
+  tests/                      mock-based gate + market/game_theory tests
 ```

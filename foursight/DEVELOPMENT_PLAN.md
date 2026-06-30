@@ -224,9 +224,10 @@ tens of thousands to low millions of parameters, CPU inference.
 
 New code (sketch):
 
-* `foursight/game_theory/` — `GameSpec`, `worst_outcome(focal, action, game)`
-* `foursight/market/ingest/` — Polymarket / Kalshi adapters → `MarketRecord`
-* `foursight/market/compare.py` — `FourWayComparison`, six pairwise gaps
+* `foursight/game_theory/` — `GameSpec`, `worst_outcome(focal, action, game)` **(scaffolded)**
+* `foursight/market/ingest/` — Polymarket / Kalshi adapters → `MarketRecord` **(scaffolded)**
+* `foursight/market/compare.py` — `FourWayComparison`, six pairwise gaps **(scaffolded)**
+* `foursight/market/trend_net.py` — tiny numpy trend net **(scaffolded)**
 * No change to chess `compare.py` in this phase
 
 ### Phase 5 — Logistics
