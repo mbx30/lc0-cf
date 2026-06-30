@@ -5,19 +5,35 @@ Three commands make the three-axis idea tangible without any GPU:
 * ``foursight engines doctor`` — show whether each axis resolves real or mock.
 * ``foursight compare "<FEN>" --elo 1500 [--played e2e4]`` — one three-way table.
 * ``foursight replay game.pgn --elo auto`` — a per-move three-way stream.
+* ``foursight calibrate game.pgn --elo auto`` — aggregate calibration metrics.
 """
 
 from __future__ import annotations
 
+import json
+from dataclasses import asdict
 from pathlib import Path
 
 import chess
+import chess.pgn
 import typer
 
 from foursight.compare import ThreeWayComparator, ThreeWayComparison
 from foursight.config import load_settings
 from foursight.engines.registry import build_engines, doctor
-from foursight.ingest.actual import ActualRecord, records_from_fen_moves, records_from_pgn
+from foursight.ingest.actual import (
+    ActualRecord,
+    records_from_fen_moves,
+    records_from_game,
+    records_from_pgn,
+)
+from foursight.metrics import (
+    CalibrationSummary,
+    aggregate_by_elo_band,
+    aggregate_by_phase,
+    comparisons_to_rows,
+    write_rows_parquet,
+)
 
 app = typer.Typer(
     add_completion=False,
@@ -65,6 +81,62 @@ def _print_comparison(c: ThreeWayComparison) -> None:
             f"Δexp(actual)={_fmt_prob(g.opt_vs_actual.delta_expectation)} "
             f"realized={_fmt_prob(g.opt_vs_actual.realized_score)}"
         )
+
+
+def _print_calibration_table(title: str, summaries: list[CalibrationSummary]) -> None:
+    typer.echo(title)
+    typer.echo(
+        "  bucket        n     hum@1  opt@1  JS     KL     Δexp(h)  Δexp(a)  P(act|hum)"
+    )
+    for summary in summaries:
+        typer.echo(
+            f"  {summary.bucket:<12}"
+            f"{summary.n_positions:>5}  "
+            f"{_fmt_prob(summary.human_agree_at_1):>6}  "
+            f"{_fmt_prob(summary.optimal_agree_at_1):>6}  "
+            f"{_fmt_prob(summary.mean_js):>5}  "
+            f"{_fmt_prob(summary.mean_kl):>5}  "
+            f"{_fmt_prob(summary.mean_delta_exp_human):>7}  "
+            f"{_fmt_prob(summary.mean_delta_exp_actual):>7}  "
+            f"{_fmt_prob(summary.mean_p_actual_given_human):>10}"
+        )
+    typer.echo("")
+
+
+def _resolve_pgn_paths(source: Path) -> list[Path]:
+    if source.is_file():
+        return [source]
+    if source.is_dir():
+        paths = sorted(p for p in source.iterdir() if p.suffix.lower() == ".pgn")
+        if paths:
+            return paths
+        raise typer.BadParameter(f"no .pgn files found in directory: {source}")
+    raise typer.BadParameter(f"source path does not exist: {source}")
+
+
+def _records_for_calibration(
+    source: Path,
+    *,
+    max_games: int | None,
+    max_moves: int | None,
+) -> list[ActualRecord]:
+    records: list[ActualRecord] = []
+    games_seen = 0
+    for path in _resolve_pgn_paths(source):
+        with path.open(encoding="utf-8") as handle:
+            while True:
+                game = chess.pgn.read_game(handle)
+                if game is None:
+                    break
+                records.extend(records_from_game(game))
+                games_seen += 1
+                if max_games is not None and games_seen >= max_games:
+                    break
+        if max_games is not None and games_seen >= max_games:
+            break
+    if max_moves is not None:
+        records = records[:max_moves]
+    return records
 
 
 @engines_app.command("doctor")
@@ -126,6 +198,65 @@ def replay(
             )
             typer.echo(f"--- ply {idx} ---")
             _print_comparison(comparison)
+
+
+@app.command("calibrate")
+def calibrate(
+    source: Path = typer.Argument(..., help="PGN file or directory of PGN files."),
+    elo: str = typer.Option("auto", help="'auto' (use mover Elo) or a fixed integer."),
+    max_games: int | None = typer.Option(None, help="Limit number of PGN games processed."),
+    max_moves: int | None = typer.Option(None, help="Limit number of positions processed."),
+    nodes: int | None = typer.Option(None, help="Search node budget per position."),
+    json_out: Path | None = typer.Option(
+        None, help="Optional JSON report output path (rows + summaries)."
+    ),
+    parquet_out: Path | None = typer.Option(
+        None, help="Optional parquet output path for flattened per-position rows."
+    ),
+) -> None:
+    """Aggregate calibration metrics over one or more games."""
+    records = _records_for_calibration(source, max_games=max_games, max_moves=max_moves)
+    if not records:
+        typer.echo("No records found for calibration.")
+        raise typer.Exit(1)
+
+    fixed_elo: int | None = None
+    if elo != "auto":
+        try:
+            fixed_elo = int(elo)
+        except ValueError as exc:
+            raise typer.BadParameter("elo must be 'auto' or an integer.") from exc
+
+    comparisons: list[ThreeWayComparison] = []
+    with build_engines(load_settings()) as pair:
+        comparator = ThreeWayComparator(pair.optimal, pair.human)
+        for record in records:
+            use_elo = fixed_elo if fixed_elo is not None else (record.player_elo or 1500)
+            comparisons.append(
+                comparator.compare(record.board, elo=use_elo, actual=record, nodes=nodes)
+            )
+
+    rows = comparisons_to_rows(comparisons)
+    by_elo = aggregate_by_elo_band(rows)
+    by_phase = aggregate_by_phase(rows)
+
+    typer.echo(f"=== Calibration report (n={len(rows)} positions) ===")
+    _print_calibration_table("By Elo band:", by_elo)
+    _print_calibration_table("By phase:", by_phase)
+
+    if json_out is not None:
+        payload = {
+            "source": str(source),
+            "rows": [asdict(r) for r in rows],
+            "by_elo_band": [asdict(s) for s in by_elo],
+            "by_phase": [asdict(s) for s in by_phase],
+        }
+        json_out.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+        typer.echo(f"Wrote JSON report to {json_out}")
+
+    if parquet_out is not None:
+        write_rows_parquet(rows, parquet_out)
+        typer.echo(f"Wrote parquet rows to {parquet_out}")
 
 
 def main() -> None:

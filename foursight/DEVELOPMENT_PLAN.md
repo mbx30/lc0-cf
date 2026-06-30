@@ -156,6 +156,13 @@ Aggregate per-position gaps over many games:
 * optimal-regret distributions
 * policy divergence (JS/KL) vs rating and phase
 
+Current status:
+
+* In progress: `foursight.metrics` now flattens `ThreeWayComparison` outputs and
+  computes grouped calibration summaries by Elo band and game phase.
+* In progress: `foursight calibrate` aggregates metrics over PGN files and can
+  emit JSON/parquet seams for Phase 2 pipelines.
+
 Reuse `ActualRecord` schema; bulk Lichess ingest can follow in Phase 2.
 
 ### Phase 2 — Bulk ingest (chess)
