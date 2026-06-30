@@ -19,3 +19,16 @@ xcuserdata
 compile_flags.txt
 .vscode
 .mesonpy*
+
+# --- foursight (4sight) package artifacts ---
+foursight/config/settings.toml
+foursight/.venv/
+foursight/dist/
+foursight/.mypy_cache/
+foursight/.ruff_cache/
+foursight/.pytest_cache/
+foursight/**/*.pb.gz
+foursight/data/
+foursight/checkpoints/
+nets/*.pb.gz
+nets/*.pt
