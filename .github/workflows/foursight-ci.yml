@@ -1,0 +1,47 @@
+name: foursight-ci
+
+# Phase-0 CPU gate for the foursight package. Path-filtered so it never runs on
+# (or interferes with) Lc0's existing C++/build CI.
+on:
+  push:
+    paths:
+      - "foursight/**"
+      - ".github/workflows/foursight-ci.yml"
+  pull_request:
+    paths:
+      - "foursight/**"
+      - ".github/workflows/foursight-ci.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  gate:
+    name: ruff + mypy + pytest (CPU, mock)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: foursight
+    env:
+      # Guarantee the mock path: no GPU, no nets, no subprocess engines.
+      FOURSIGHT_FORCE_MOCK: "1"
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Set up Python
+        run: uv python install 3.11
+
+      - name: Sync dependencies
+        run: uv sync
+
+      - name: Ruff
+        run: uv run ruff check .
+
+      - name: Mypy
+        run: uv run mypy foursight
+
+      - name: Pytest
+        run: uv run pytest
