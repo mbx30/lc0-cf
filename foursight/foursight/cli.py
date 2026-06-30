@@ -41,6 +41,8 @@ app = typer.Typer(
 )
 engines_app = typer.Typer(add_completion=False, help="Inspect the engine pair.")
 app.add_typer(engines_app, name="engines")
+ingest_app = typer.Typer(add_completion=False, help="Bulk-ingest the ACTUAL axis.")
+app.add_typer(ingest_app, name="ingest")
 
 
 def _fmt_prob(value: float | None) -> str:
