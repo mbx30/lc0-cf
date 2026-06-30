@@ -63,6 +63,9 @@ uv run foursight compare "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e
 
 # Per-move three-way stream over a real game:
 uv run foursight replay game.pgn --elo auto
+
+# Aggregate calibration metrics by Elo band and phase:
+uv run foursight calibrate game.pgn --elo auto --json-out report.json
 ```
 
 Each comparison is one structured `ThreeWayComparison` object (see

@@ -1,0 +1,19 @@
+[Event "Test Game 1"]
+[Site "?"]
+[White "Alice"]
+[Black "Bob"]
+[Result "1-0"]
+[WhiteElo "1600"]
+[BlackElo "1500"]
+
+1. e4 e5 2. Qh5 Nc6 3. Bc4 Nf6 4. Qxf7# 1-0
+
+[Event "Test Game 2"]
+[Site "?"]
+[White "Carol"]
+[Black "Dave"]
+[Result "1/2-1/2"]
+[WhiteElo "1800"]
+[BlackElo "1750"]
+
+1. d4 d5 2. c4 e6 3. Nc3 Nf6 4. Bg5 Be7 1/2-1/2
