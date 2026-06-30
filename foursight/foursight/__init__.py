@@ -1,9 +1,12 @@
-"""4sight — three-axis (optimal | human | actual) outcome comparison.
+"""4sight — four sights; chess proving ground uses three.
 
-The chess proving ground for the market product: Leela-CF supplies the OPTIMAL
-axis, Maia-3 the HUMAN axis, and real games the ACTUAL axis. The three pairwise
-gaps emitted by :mod:`foursight.compare` are the same signals the market engine
-will later compute.
+Product sights: OPTIMAL | HUMAN | ACTUAL | WORST (adversarial-coalition worst
+outcome, 3+ actors only). Two-actor chess implements the first three — WORST
+collapses into optimal adversarial play and is not a separate sight.
+
+Leela-CF supplies OPTIMAL, Maia-3 HUMAN, and real games ACTUAL.
+:mod:`foursight.compare` emits the three pairwise gaps for chess; the market
+engine will add WORST and six gaps when actor count ≥ 3.
 """
 
 from __future__ import annotations

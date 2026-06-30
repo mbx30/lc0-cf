@@ -1,25 +1,37 @@
 # 4sight (Maia v2)
 
-**4sight predicts the most likely real-world outcome by lining up three things
-and comparing them.** Chess is a direct prototype of the market product: the
-three pairwise gaps it computes here are exactly the signals the market engine
-will later compute.
+**4sight predicts the most likely real-world outcome by lining up up to four
+sights and comparing them.** The name is deliberate: **OPTIMAL**, **HUMAN**,
+**ACTUAL**, and **WORST** (worst possible outcome under adversarial
+multi-actor coordination).
 
-| Axis | Chess proving ground (this repo) | Real-world / market analogue |
+Chess is the **two-actor proving ground** and therefore runs **three sights
+only** — WORST does not apply in zero-sum two-player games (the adversarial
+worst case is already captured by OPTIMAL). The three pairwise gaps computed
+here are the core signals the market engine will extend to six gaps when actor
+count ≥ 3.
+
+| Sight | Chess proving ground (this repo) | Real-world / market analogue |
 | --- | --- | --- |
 | **OPTIMAL** | **Leela-CF** — Chessformer strength net in Lc0 (MCTS, native WDL value head), ~100 Elo > Stockfish | best-EV / "correct in hindsight" action |
-| **HUMAN** | **Maia-3** — Elo-conditioned Chessformer human net (Python UCI) | behavioral model / crowd belief |
-| **ACTUAL (IRL)** | the move actually played + the realized game result (from real PGNs) | realized real-world outcome |
+| **HUMAN** | **Maia-3** — Elo-conditioned Chessformer human net (Python UCI, history n=7) | behavioral model / crowd belief |
+| **ACTUAL** | the move actually played + the realized game result (from real PGNs) | realized real-world outcome |
+| **WORST** | *N/A for 2-actor chess* | worst coalition outcome (game theory, 3+ actors) |
 
-Stockfish is replaced: **Leela-CF takes the OPTIMAL axis** (native WDL — no
-centipawn→win% sigmoid) and **Maia-3 keeps the HUMAN axis**. Both engines stay,
+Stockfish is replaced: **Leela-CF takes the OPTIMAL sight** (native WDL — no
+centipawn→win% sigmoid) and **Maia-3 keeps the HUMAN sight**. Both engines stay,
 organized side-by-side — comparing **optimal vs human vs actual** is the point.
 
-The three pairwise gaps:
+The three chess pairwise gaps:
 
 * **optimal vs human** (Leela vs Maia) → where humans are *predictably* suboptimal.
 * **human vs actual** (Maia vs realized) → how well the human model predicts reality.
 * **optimal vs actual** (Leela vs realized) → how often reality tracked the optimal.
+
+See [`DEVELOPMENT_PLAN.md`](DEVELOPMENT_PLAN.md) for the full phased roadmap
+(chess metrics → bulk ingest → serving → **market four-sight engine** →
+logistics → finance → optional chess N-actor extension last). Product vision:
+[Maia v2 on Notion](https://app.notion.com/p/berrymichael/Maia-v2-38e9cb079ddb804f8843e182ffb7101c).
 
 ## Quick start (CPU — no GPU, no nets)
 
@@ -77,10 +89,8 @@ foursight/
       maia3.py                HUMAN   — Maia-3 UCI, SelfElo/OppoElo
       mock.py                 CPU gate — deterministic stand-in
       registry.py             builds {optimal, human}, mock fallback
-    ingest/actual.py          ACTUAL axis from PGN / FEN+moves
+    ingest/actual.py          ACTUAL sight from PGN / FEN+moves
     compare.py                ThreeWayComparison + pairwise gaps
     cli.py                    doctor / compare / replay
   tests/                      mock-based gate + opt-in live checks
 ```
-
-See [`DEVELOPMENT_PLAN.md`](DEVELOPMENT_PLAN.md) for the phased roadmap.

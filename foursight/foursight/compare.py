@@ -1,8 +1,13 @@
 """The deliverable: one structured three-way comparison per position.
 
-For a position we line up the three axes — OPTIMAL (Leela-CF), HUMAN (Maia-3) and
-ACTUAL (what was really played) — and compute the three pairwise gaps that are
-exactly the signals the market engine will later compute:
+Chess is two-actor, so we implement three of four product sights — OPTIMAL
+(Leela-CF), HUMAN (Maia-3), and ACTUAL (what was really played). WORST (the
+fourth sight: adversarial-coalition worst outcome) applies only when actor
+count ≥ 3 and is deferred to the market engine.
+
+For a position we line up the three active chess sights and compute the three
+pairwise gaps that are exactly the signals the market engine will later extend
+to six:
 
 * **optimal vs human**  — where humans are *predictably* suboptimal
   (policy divergence + the EV the human's top move gives up).
