@@ -1,0 +1,28 @@
+# 4sight engine configuration — copy to settings.toml and edit for your machine.
+#
+# Paths are resolved relative to where you run `foursight`, which is normally the
+# lc0-cf repo root (so the in-repo Lc0 build and the maia3 submodule are found).
+# If a binary or net is missing, the registry transparently falls back to the
+# dependency-free MockEngine, so the CPU gate stays green without any of this.
+
+# Force the mock for both axes regardless of what is installed (CI / CPU gate).
+# The FOURSIGHT_FORCE_MOCK=1 env var does the same and always wins.
+force_mock = false
+
+# OPTIMAL axis — Leela-CF: the repo's built Lc0 + a Chessformer strength net.
+# Native WDL value head (no centipawn->win% sigmoid).
+[optimal]
+command = ["build/release/lc0"]
+net = "nets/leela-cf.pb.gz"
+default_elo = 1500
+device = "cuda"   # "cpu" maps to the blas backend
+nodes = 800       # node budget; prefer over wall-clock for reproducibility
+
+# HUMAN axis — Maia-3: the maia3 submodule's Elo-conditioned UCI predictor.
+# Single forward pass (no search); rating set via SelfElo / OppoElo.
+[human]
+command = ["maia3-5m"]   # or maia3-23m / maia3-79m
+net = ""                 # Maia-3 weights are bundled with the model command
+default_elo = 1500
+device = "cpu"
+nodes = 1
