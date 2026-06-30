@@ -2,13 +2,19 @@
 
 Instructions for cloud agents and contributors working on this Chessformer Lc0 fork.
 
+Lc0 (Leela Chess Zero) is a single C++20 product: a UCI-compliant chess engine
+that evaluates positions with a neural network. It is a CLI app driven over
+stdin/stdout (UCI protocol), not a web/service app. Build system is Meson +
+Ninja (`meson.build`, `meson_options.txt`); see `README.md`/`CONTRIBUTING.md`
+for the canonical build docs.
+
 ## Repository Layout
 
 - **Root** — Lc0 C++ engine (Meson build). Supports attention-body / Smolgen networks for Chessformer engine weights.
 - **`maia3/`** — Human move prediction (git submodule). Python package with UCI entry points.
 - **`CHESSFORMER.md`** — Integration overview, quick start, and architecture notes.
 
-## Build Lc0
+## Build / test / run Lc0
 
 System dependencies (Debian/Ubuntu):
 
@@ -17,13 +23,17 @@ apt-get install -y libopenblas-dev pkg-config ninja-build
 pip3 install --break-system-packages meson ninja
 ```
 
-**Important:** Build with gcc, not the default clang (clang fails linking `-lstdc++`):
+Build:
 
 ```bash
 CC=gcc CXX=g++ ./build.sh
 ```
 
-Binary: `build/release/lc0`
+- IMPORTANT: the default `c++`/`cc` is clang and the build FAILS with
+  `cannot find -lstdc++` (no clang libstdc++ in this image). Always set
+  `CC=gcc CXX=g++`. g++ 13 satisfies the C++20 requirement.
+- Binary: `build/release/lc0`
+- Incremental dev build (after first `build.sh`): `ninja -C build/release lc0`.
 
 Run tests:
 
@@ -31,16 +41,21 @@ Run tests:
 ninja -C build/release test
 ```
 
-Hello-world UCI smoke test (CPU backend, small network):
+Hello-world UCI smoke test (CPU backend):
 
 ```bash
-# Download a small test network if needed, then:
-printf 'uci\nisready\nposition startpos\ngo nodes 1\nquit\n' | ./build/release/lc0 --backend=blas --weights=/path/to/network.pb.gz
+printf 'uci\nposition startpos\ngo nodes 200\n'; sleep 8; printf 'quit\n' | \
+  ./build/release/lc0 --weights=build/release/weights_test.pb.gz --backend=blas
 ```
+
+`lc0` needs a network weights file to evaluate. Send `quit` only after the search
+finishes (input is read on a separate thread, so an immediate `quit` aborts the
+search).
 
 ## Install Maia-3
 
 ```bash
+git submodule update --init --recursive
 ./scripts/setup-maia3.sh
 ```
 
@@ -77,6 +92,17 @@ Base branch for PRs: `cf-integration`
 ## Gotchas
 
 1. Always use `CC=gcc CXX=g++` for Lc0 builds on this VM.
-2. Maia-3 and Lc0 are separate UCI engines — do not expect Maia-3 `.pt` weights to load in Lc0 without conversion.
-3. Maia-3 is for human modeling (`go nodes 1`); Lc0 Chessformer nets use full search for strength.
-4. The `build/` directory is gitignored; do not commit build artifacts or downloaded weights.
+2. `meson` is installed in `~/.local/bin`. `build.sh` adds that to PATH itself,
+   but direct `meson`/`ninja` commands need `PATH="$PATH:$HOME/.local/bin"` if
+   meson isn't found (ninja from apt is already on PATH at `/usr/bin/ninja`).
+3. CPU backend is `blas` (OpenBLAS, installed via `libopenblas-dev`); there is no
+   GPU in this environment. `eigen`/`trivial`/`random` backends are also built.
+4. A test network is already present at `build/release/weights_test.pb.gz`
+   (256x20 legacy net, ~55 MB). It is not committed; download more from
+   <https://lczero.org/play/networks/bestnets/> if needed. Eval on CPU/BLAS is
+   slow (single-digit nps), so use small `go nodes N` for quick checks.
+5. Meson auto-fetches subprojects (abseil, protobuf, zlib, gtest, eigen) from git
+   during the first `meson setup`; this needs network access.
+6. Maia-3 and Lc0 are separate UCI engines — do not expect Maia-3 `.pt` weights to load in Lc0 without conversion.
+7. Maia-3 is for human modeling (`go nodes 1`); Lc0 Chessformer nets use full search for strength.
+8. The `build/` directory is gitignored; do not commit build artifacts or downloaded weights.
