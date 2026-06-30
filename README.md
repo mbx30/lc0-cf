@@ -1,6 +1,26 @@
 [![CircleCI](https://circleci.com/gh/LeelaChessZero/lc0.svg?style=shield)](https://circleci.com/gh/LeelaChessZero/lc0)
 [![AppVeyor](https://ci.appveyor.com/api/projects/status/3245b83otdee7oj7?svg=true)](https://ci.appveyor.com/project/leelachesszero/lc0)
 
+# Lc0 (Chessformer fork)
+
+This fork integrates the [Chessformer](https://arxiv.org/abs/2605.19091) unified
+chess modeling architecture:
+
+- **Lc0** (this tree) runs Chessformer engine networks (Leela-CF / BT4) with MCTS
+  for maximum playing strength.
+- **[Maia-3](maia3/)** (git submodule) provides human move prediction via a Python
+  UCI engine with Elo conditioning.
+
+See **[CHESSFORMER.md](CHESSFORMER.md)** for setup, architecture notes, and quick
+start. To install Maia-3 after cloning:
+
+```bash
+git submodule update --init --recursive
+./scripts/setup-maia3.sh
+```
+
+The remainder of this README documents upstream Lc0 build and usage.
+
 # Lc0
 
 Lc0 is a UCI-compliant chess engine designed to play chess via neural network, specifically those of the [LeelaChessZero project](https://lczero.org).
