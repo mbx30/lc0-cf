@@ -27,7 +27,6 @@ from foursight.ingest.actual import (
     records_from_game,
     records_from_pgn,
 )
-from foursight.ingest.lichess import GameFilter, ingest_lichess_to_parquet
 from foursight.metrics import (
     CalibrationSummary,
     aggregate_by_elo_band,
@@ -260,45 +259,6 @@ def calibrate(
     if parquet_out is not None:
         write_rows_parquet(rows, parquet_out)
         typer.echo(f"Wrote parquet rows to {parquet_out}")
-
-
-@ingest_app.command("lichess")
-def ingest_lichess(
-    source: Path = typer.Argument(..., help="Lichess .pgn or .pgn.zst dump."),
-    out: Path = typer.Option(..., help="Parquet output path."),
-    variant: str = typer.Option("Standard", help="Variant header to keep."),
-    rated_only: bool = typer.Option(True, help="Keep only rated games."),
-    min_elo: int | None = typer.Option(None, help="Require both Elos >= this value."),
-    require_elo: bool = typer.Option(True, help="Require both players' Elo present."),
-    min_tc_seconds: int | None = typer.Option(
-        None, help="Drop games whose TimeControl base < this many seconds."
-    ),
-    max_games: int | None = typer.Option(None, help="Cap accepted games."),
-    max_positions: int | None = typer.Option(None, help="Cap total positions written."),
-    batch_size: int = typer.Option(50_000, help="Rows per parquet row group."),
-) -> None:
-    """Stream a Lichess dump into filtered per-position parquet + manifest."""
-    game_filter = GameFilter(
-        variant=variant,
-        rated_only=rated_only,
-        min_elo=min_elo,
-        require_elo=require_elo,
-        time_control_min_seconds=min_tc_seconds,
-    )
-    result = ingest_lichess_to_parquet(
-        source,
-        out,
-        game_filter=game_filter,
-        max_games=max_games,
-        max_positions=max_positions,
-        batch_size=batch_size,
-    )
-    typer.echo(
-        f"games read={result.games_read} accepted={result.games_accepted} "
-        f"rows written={result.rows_written}"
-    )
-    typer.echo(f"Wrote parquet to {result.output}")
-    typer.echo(f"Wrote manifest to {result.manifest}")
 
 
 def main() -> None:
