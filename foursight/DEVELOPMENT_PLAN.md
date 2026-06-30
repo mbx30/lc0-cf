@@ -90,6 +90,7 @@ out-of-sample discipline in finance (walk-forward splits, Deflated Sharpe, PBO).
 | D7 | Home repo | `mbx30/lc0-cf`; package `foursight` at repo root |
 | D8 | Engine source | in-repo Lc0 (+Leela-CF net) and the `maia3` submodule; config can override |
 | D9 | Naming / compute | package `foursight`; CPU-green gate via mock; GPU path scripted, not gated |
+| D10 | Market data sources | **TBD** — may combine multiple platforms (Polymarket + Kalshi) into a synthesis; tier choice below |
 
 ## Phase 0 — scaffold (delivered)
 
@@ -172,26 +173,60 @@ as Maia at one node.
 
 ### Phase 4 — Market engine (four sights, 3+ actors)
 
-Port the comparison framework to market / business data where **actor count ≥
-3** (e.g. you vs competitors vs market makers vs informed flow):
+Port the comparison framework to prediction-market / business data where **actor
+count ≥ 3** (e.g. you vs competitors vs market makers vs informed flow):
 
 | Sight | Market instance |
 | --- | --- |
 | OPTIMAL | best-EV action (MPC / OR baseline where simulators exist) |
-| HUMAN | crowd belief — tiny trend net or aggregated sentiment |
-| ACTUAL | realized price / sales / demand outcome |
+| HUMAN | crowd belief — tiny trend net or aggregated implied probability |
+| ACTUAL | realized resolution / final price outcome |
 | WORST | adversarial-coalition tail outcome via `game_theory/` module |
 
+#### Market data sources (TBD — may use multiple for synthesis)
+
+Platform choice is **not finalized**. The likely path is a **synthesis across
+Polymarket and Kalshi** (and possibly others) so the four sights see a unified
+`MarketRecord` schema regardless of upstream exchange. TB-scale tick archives
+are **explicitly out of scope** — outcomes plus coarse price history is
+sufficient for trend/probability prediction and fits on a laptop.
+
+| Tier | Contents | Approx. size | Fit for 4sight |
+| --- | --- | --- | --- |
+| **Lightweight** | Outcomes + metadata only (question text, resolution, category, final result) | ~100k Polymarket markets → **< 100 MB** | ACTUAL sight baseline; "did this event resolve up/down" |
+| **Medium** *(target tier)* | Price history at **15-minute** snapshots, no full order book | **tens–100 MB** (public 13,964-market / 10.8M-row sets) to **< 2 GB** (18M+ snapshot crawls) for Polymarket; Kalshi comparable at similar resolution | **HUMAN** + calibration features; right tier for the tiny trend net |
+| **Heavy** | Every trade, full platform history, order-book depth | Polymarket **~107 GB** (1.1B trades, 268k+ markets — [SII-WANGZJ/Polymarket_data](https://github.com/SII-WANGZJ/Polymarket_data)); Kalshi **36 GB+** trades + order book ([Lychee](https://lycheedata.com/kalshi-historical-data), [TrevorJS/kalshi-trades](https://huggingface.co/datasets/TrevorJS/kalshi-trades) ~5.7 GB trade subset on Hugging Face) | Microstructure research only — **not needed** for four-sight prediction |
+
+**Recommended default:** Lightweight + Medium for both platforms → **a few hundred
+MB to low single-digit GB** combined, laptop-friendly, no special storage.
+
+Candidate sources (evaluate during Phase 4; mix and match for synthesis):
+
+| Platform | Lightweight / metadata | Medium (15-min prices) | Heavy (full trades) |
+| --- | --- | --- | --- |
+| **Polymarket** | ~100k market metadata rows | [manja316/polymarket-historical-data](https://github.com/manja316/polymarket-historical-data) (13,964 markets, 10.8M prices); larger crawls ~18.7M snapshots ([DEV write-up](https://dev.to/manja316/give-claude-or-cursor-live-polymarket-prediction-market-data-with-one-mcp-server-58ch)); free samples on [Hugging Face](https://huggingface.co/datasets/manja316/polymarket-historical-prices) | [SII-WANGZJ/Polymarket_data](https://github.com/SII-WANGZJ/Polymarket_data) on [Hugging Face](https://huggingface.co/datasets/SII-WANGZJ/Polymarket_data) |
+| **Kalshi** | Market/event metadata via public API | Coarse price series from API or bundled history products | [Lychee 36 GB+ archive](https://lycheedata.com/kalshi-historical-data); [TrevorJS/kalshi-trades](https://huggingface.co/datasets/TrevorJS/kalshi-trades) (154M+ trades, ~5.7 GB Parquet) |
+
+**Synthesis sketch** (`foursight/market/ingest/`):
+
+1. Normalize each source → common `MarketRecord` (question, category, timestamps,
+   implied prob series, resolution, platform id).
+2. Align time zones and resolution (resample to 15-min if needed).
+3. Deduplicate cross-listed or semantically identical events where detectable.
+4. Tag `actor_count` and platform so WORST/game-theory path activates (≥ 3).
+5. Walk-forward train/test splits **per market chronology** — never shuffle.
+
 **Tiny trend net** (from blueprint): state = rolling window of normalized
-features (returns, vol, MA ratio); policy = DOWN / FLAT / UP buckets (mirrors
-WDL framing); value = expected magnitude; **walk-forward chronological splits
-only** — never shuffle time series. Architecture: small 1D-conv or MLP, tens of
-thousands to low millions of parameters, CPU inference.
+features (returns, vol, MA ratio, implied-prob momentum); policy = DOWN /
+FLAT / UP buckets (mirrors WDL framing); value = expected magnitude;
+**walk-forward chronological splits only**. Architecture: small 1D-conv or MLP,
+tens of thousands to low millions of parameters, CPU inference.
 
 New code (sketch):
 
 * `foursight/game_theory/` — `GameSpec`, `worst_outcome(focal, action, game)`
-* `foursight/market/` — ingest, `FourWayComparison`, six pairwise gaps
+* `foursight/market/ingest/` — Polymarket / Kalshi adapters → `MarketRecord`
+* `foursight/market/compare.py` — `FourWayComparison`, six pairwise gaps
 * No change to chess `compare.py` in this phase
 
 ### Phase 5 — Logistics

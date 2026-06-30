@@ -29,9 +29,15 @@ The three chess pairwise gaps:
 * **optimal vs actual** (Leela vs realized) → how often reality tracked the optimal.
 
 See [`DEVELOPMENT_PLAN.md`](DEVELOPMENT_PLAN.md) for the full phased roadmap
-(chess metrics → bulk ingest → serving → **market four-sight engine** →
-logistics → finance → optional chess N-actor extension last). Product vision:
+(chess metrics → bulk ingest → serving → **market four-sight engine** with
+Polymarket/Kalshi data tiers → logistics → finance → optional chess N-actor
+extension last). Product vision:
 [Maia v2 on Notion](https://app.notion.com/p/berrymichael/Maia-v2-38e9cb079ddb804f8843e182ffb7101c).
+
+**Market data (Phase 4, sources TBD):** prediction-market ingest targets
+**Lightweight** (outcomes + metadata, < 100 MB) plus **Medium** (15-minute price
+history, laptop-scale) — not TB tick archives. Polymarket and Kalshi may be
+combined into a synthesis; see the plan for candidate datasets and sizing.
 
 ## Quick start (CPU — no GPU, no nets)
 
